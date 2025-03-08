@@ -5,6 +5,9 @@
 	let canvas;
 	let firstBlackPoint;
 	let path;
+	let draggingPath = null;
+	let isDrawing = false;
+	let selectedItem = null;
 
 	function createCircle(point, radius, fillColor) {
 		const circle = new paper.Path.Circle({
@@ -31,8 +34,6 @@
 		const tool = new paper.Tool();
 		canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
-		let draggingPath = null;
-
 		tool.onMouseDown = (event) => {
 			if (!isLeftButton(event)) return;
 
@@ -47,14 +48,41 @@
 					draggingPath = hitResult.item;
 				}
 			} else {
-				if (path) path.selected = false;
-				path = new paper.Path({
-					segments: [event.point],
-					strokeColor: 'black'
+				// Check if clicked on an existing shape
+				const hitResult = paper.project.hitTest(event.point, {
+					segments: true,
+					stroke: true,
+					fill: true,
+					tolerance: 5
 				});
-				firstBlackPoint = event.point;
-				createCircle(event.point, 4, 'black');
-				console.log('Layer children count after start:', paper.project.activeLayer.children.length);
+				if (hitResult && hitResult.item) {
+					if (path) path.selected = false;
+					hitResult.item.selected = true;
+					hitResult.item.fullySelected = true;
+					selectedItem = hitResult.item;
+					console.log('Shape selected at:', event.point);
+					return;
+				} else {
+					// If there is already a selected item and click misses, deselect it
+					if (selectedItem) {
+						selectedItem.selected = false;
+						selectedItem.fullySelected = false;
+						selectedItem = null;
+						console.log('Deselected shape');
+						return;
+					}
+
+					// No selected shape, start drawing
+					isDrawing = true;
+					if (path) path.selected = false;
+					path = new paper.Path({
+						segments: [event.point],
+						strokeColor: 'black'
+					});
+					firstBlackPoint = event.point;
+					createCircle(event.point, 4, 'black');
+					console.log('Layer children count after start:', paper.project.activeLayer.children.length);
+				}
 			}
 		};
 
@@ -63,7 +91,7 @@
 
 			if (event.modifiers.shift && draggingPath) {
 				draggingPath.position = draggingPath.position.add(event.delta);
-			} else if (path) {
+			} else if (isDrawing && path) {
 				path.add(event.point);
 				createCircle(event.point, 1, 'red');
 				console.log('Layer children count after drag:', paper.project.activeLayer.children.length);
@@ -76,6 +104,7 @@
 			if (event.modifiers.shift) {
 				draggingPath = null;
 			} else {
+				if (!isDrawing) return;
 				createCircle(event.point, 4, 'black');
 				console.log('Layer children count after end:', paper.project.activeLayer.children.length);
 
@@ -105,6 +134,7 @@
 				}
 
 				paper.view.update();
+				isDrawing = false;
 			}
 		};
 	});
