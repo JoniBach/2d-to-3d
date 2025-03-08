@@ -30,15 +30,52 @@
 			.forEach(item => item.remove());
 	}
 
-    function drawGrid() {
-    const { left, right, top, bottom } = paper.view.bounds;
-    for (let x = left; x <= right; x += GRID_SPACING) {
-      new paper.Path.Line({ from: [x, top], to: [x, bottom], strokeColor: GRID_COLOR, data: { grid: true } });
-    }
-    for (let y = top; y <= bottom; y += GRID_SPACING) {
-      new paper.Path.Line({ from: [left, y], to: [right, y], strokeColor: GRID_COLOR, data: { grid: true } });
-    }
-  }
+	function deselectAllItems() {
+		selectedItems.forEach(item => {
+			item.selected = false;
+			item.fullySelected = false;
+		});
+		selectedItems = [];
+	}
+
+	function toggleSelection(item) {
+		if (selectedItems.includes(item)) {
+			pendingDeselect = item;
+		} else {
+			item.selected = true;
+			item.fullySelected = true;
+			selectedItems.push(item);
+		}
+		draggingPath = item;
+	}
+
+	function handleShiftMouseDrag(event) {
+		if (pendingDeselect) pendingDeselect = null;
+		selectedItems.forEach(item => {
+			item.position = item.position.add(event.delta);
+		});
+		update3DPattern();
+	}
+
+	function handleShiftMouseUp() {
+		if (pendingDeselect) {
+			pendingDeselect.selected = false;
+			pendingDeselect.fullySelected = false;
+			selectedItems = selectedItems.filter(item => item !== pendingDeselect);
+			pendingDeselect = null;
+		}
+		draggingPath = null;
+	}
+
+	function drawGrid() {
+		const { left, right, top, bottom } = paper.view.bounds;
+		for (let x = left; x <= right; x += GRID_SPACING) {
+			new paper.Path.Line({ from: [x, top], to: [x, bottom], strokeColor: GRID_COLOR, data: { grid: true } });
+		}
+		for (let y = top; y <= bottom; y += GRID_SPACING) {
+			new paper.Path.Line({ from: [left, y], to: [right, y], strokeColor: GRID_COLOR, data: { grid: true } });
+		}
+	}
 
 	const hitOptions = { segments: true, stroke: true, fill: true, tolerance: 5 };
 	const isLeftButton = event => event.event.button === 0;
@@ -74,10 +111,9 @@
 				});
 			}
 		});
-        // Flip the group vertically and reposition it so that the 2D canvas center maps to the 3D scene
-        group.scale.y = -1;
-        const center = paper.view.center;
-        group.position.set(-center.x, center.y, 0);
+		group.scale.y = -1;
+		const center = paper.view.center;
+		group.position.set(-center.x, center.y, 0);
 		threePattern = group;
 		threeScene.add(threePattern);
 	}
@@ -110,36 +146,22 @@
 	onMount(() => {
 		if (!canvas) return;
 		paper.setup(canvas);
-        drawGrid()
+		drawGrid()
 		const tool = new paper.Tool();
 		canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 		tool.onMouseDown = event => {
 			if (!isLeftButton(event)) return;
 			const hitResult = paper.project.hitTest(event.point, hitOptions);
-
 			if (event.modifiers.shift) {
 				if (hitResult?.item) {
-					if (selectedItems.includes(hitResult.item)) {
-						pendingDeselect = hitResult.item;
-						draggingPath = hitResult.item;
-					} else {
-						hitResult.item.selected = true;
-						hitResult.item.fullySelected = true;
-						selectedItems.push(hitResult.item);
-						draggingPath = hitResult.item;
-					}
+					toggleSelection(hitResult.item);
 				}
 				return;
-			} else if (selectedItems.length > 0) {
-				selectedItems.forEach(item => {
-					item.selected = false;
-					item.fullySelected = false;
-				});
-				selectedItems = [];
+			} else {
+				deselectAllItems();
 				draggingPath = null;
 			}
-
 			isDrawing = true;
 			if (path) path.selected = false;
 			path = new paper.Path({ segments: [event.point], strokeColor: 'black' });
@@ -150,11 +172,7 @@
 		tool.onMouseDrag = event => {
 			if (!isLeftButton(event)) return;
 			if (event.modifiers.shift && draggingPath?.selected) {
-				if (pendingDeselect) pendingDeselect = null;
-				selectedItems.forEach(item => {
-					item.position = item.position.add(event.delta);
-				});
-				update3DPattern();
+				handleShiftMouseDrag(event);
 				return;
 			}
 			if (isDrawing && path) {
@@ -166,13 +184,7 @@
 		tool.onMouseUp = event => {
 			if (!isLeftButton(event)) return;
 			if (event.modifiers.shift) {
-				if (pendingDeselect) {
-					pendingDeselect.selected = false;
-					pendingDeselect.fullySelected = false;
-					selectedItems = selectedItems.filter(item => item !== pendingDeselect);
-					pendingDeselect = null;
-				}
-				draggingPath = null;
+				handleShiftMouseUp();
 				return;
 			}
 			if (!isDrawing) return;
@@ -187,7 +199,6 @@
 				path.fillColor.alpha = 0.05;
 				update3DPattern();
 			}
-			const originalCount = path.segments.length;
 			path.simplify(10);
 			path.fullySelected = true;
 			removeCircles('red');
