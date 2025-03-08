@@ -4,67 +4,90 @@
   import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
   import paper from 'paper';
   
-  let paperCanvas;
-  let threeCanvas;
-  let paperCircle, threeCircle;
+  let paperCanvas, threeCanvas;
+  let drawingPath, threeScene, threeCamera, threeRenderer, threeControls, threePattern;
   
-  // Initialize Paper.js canvas, draw grid and add a red circle with drag functionality
+  const GRID_SPACING = 20;
+  const GRID_COLOR = '#e0e0e0';
+  
+  function drawGrid() {
+    const { left, right, top, bottom } = paper.view.bounds;
+    for (let x = left; x <= right; x += GRID_SPACING) {
+      new paper.Path.Line({ from: [x, top], to: [x, bottom], strokeColor: GRID_COLOR, data: { grid: true } });
+    }
+    for (let y = top; y <= bottom; y += GRID_SPACING) {
+      new paper.Path.Line({ from: [left, y], to: [right, y], strokeColor: GRID_COLOR, data: { grid: true } });
+    }
+  }
+  
+  const handleMouseDown = (event) => {
+    drawingPath = new paper.Path({ strokeColor: 'red', strokeWidth: 2 });
+    drawingPath.add(event.point);
+  };
+
+  const handleMouseDrag = (event) => {
+    drawingPath.add(event.point);
+    paper.view.draw();
+  };
+
+  const handleMouseUp = (event) => {
+    drawingPath.add(event.point);
+    update3DPattern();
+  };
+  
   function initPaper() {
     paper.setup(paperCanvas);
-    const gridSpacing = 20;
-    const { left, right, top, bottom } = paper.view.bounds;
-    for (let x = left; x <= right; x += gridSpacing) {
-      new paper.Path.Line({ from: [x, top], to: [x, bottom], strokeColor: '#e0e0e0' });
-    }
-    for (let y = top; y <= bottom; y += gridSpacing) {
-      new paper.Path.Line({ from: [left, y], to: [right, y], strokeColor: '#e0e0e0' });
-    }
-    paperCircle = new paper.Path.Circle({ center: paper.view.center, radius: 50, fillColor: 'red' });
-    paperCircle.onMouseDown = function(event) {
-      this.data.offset = this.position.subtract(event.point);
-    };
-    paperCircle.onMouseDrag = function(event) {
-      this.position = event.point.add(this.data.offset);
-      if (threeCircle) {
-        const { x: centerX, y: centerY } = paper.view.center;
-        threeCircle.position.x = this.position.x - centerX;
-        threeCircle.position.y = centerY - this.position.y;
-        threeCircle.position.z = 0;
-      }
-    };
+    drawGrid();
+    paper.view.onMouseDown = handleMouseDown;
+    paper.view.onMouseDrag = handleMouseDrag;
+    paper.view.onMouseUp = handleMouseUp;
     paper.view.draw();
   }
   
-  // Initialize Three.js canvas with scene, camera, grid and controls
   function initThree() {
-    const width = threeCanvas.clientWidth;
-    const height = threeCanvas.clientHeight;
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xffffff);
-    const camera = new THREE.PerspectiveCamera(77, width / height, 0.1, 1000);
-    camera.position.set(0, 0, 250);
-    camera.lookAt(0, 0, 0);
-    const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas });
-    renderer.setSize(width, height);
-    renderer.setClearColor(0xffffff);
-    const gridHelper = new THREE.GridHelper(400, 20, 0xe0e0e0, 0xe0e0e0);
+    const { clientWidth: width, clientHeight: height } = threeCanvas;
+    threeScene = new THREE.Scene();
+    threeScene.background = new THREE.Color(0xffffff);
+    threeCamera = new THREE.PerspectiveCamera(77, width / height, 0.1, 1000);
+    threeCamera.position.set(0, 0, 250);
+    threeCamera.lookAt(0, 0, 0);
+    threeRenderer = new THREE.WebGLRenderer({ canvas: threeCanvas });
+    threeRenderer.setSize(width, height);
+    threeRenderer.setClearColor(0xffffff);
+    const gridHelper = new THREE.GridHelper(400, 20, GRID_COLOR, GRID_COLOR);
     gridHelper.rotation.x = -Math.PI / 2;
-    scene.add(gridHelper);
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.dampingFactor = 0.25;
-    controls.enableZoom = true;
-    const geometry = new THREE.CircleGeometry(50, 32);
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    threeCircle = new THREE.Mesh(geometry, material);
-    scene.add(threeCircle);
-    
-    function animate() {
+    threeScene.add(gridHelper);
+    threeControls = new OrbitControls(threeCamera, threeRenderer.domElement);
+    threeControls.enableDamping = true;
+    threeControls.dampingFactor = 0.25;
+    threeControls.enableZoom = true;
+    const animate = () => {
       requestAnimationFrame(animate);
-      controls.update();
-      renderer.render(scene, camera);
-    }
+      threeControls.update();
+      threeRenderer.render(threeScene, threeCamera);
+    };
     animate();
+  }
+  
+  function update3DPattern() {
+    if (threePattern) {
+      threeScene.remove(threePattern);
+    }
+    const center = paper.view.center;
+    const group = new THREE.Group();
+    paper.project.activeLayer.children.forEach(item => {
+      if (item instanceof paper.Path && item.strokeColor && !item.data?.grid) {
+        const vertices = item.segments.flatMap(segment => [segment.point.x - center.x, center.y - segment.point.y, 0]);
+        if (vertices.length >= 6) {
+          const geometry = new THREE.BufferGeometry();
+          geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+          const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+          group.add(new THREE.Line(geometry, material));
+        }
+      }
+    });
+    threePattern = group;
+    threeScene.add(threePattern);
   }
   
   onMount(() => {
