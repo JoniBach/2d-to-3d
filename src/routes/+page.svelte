@@ -3,6 +3,7 @@
   import paper from 'paper';
   
   let canvas;
+  let firstBlackPoint;
 
 
   function createCircle(point, radius, fillColor) {
@@ -27,6 +28,7 @@
         strokeColor: 'black',
         fullySelected: false
       });
+      firstBlackPoint = event.point;
       createCircle(event.point, 4, 'black');
       console.log('Current layer children count after start circle:', paper.project.activeLayer.children.length);
     };
@@ -42,6 +44,24 @@
     tool.onMouseUp = (event) => {
       createCircle(event.point, 4, 'black');
       console.log('Current layer children count after end circle:', paper.project.activeLayer.children.length);
+  
+      // Check if the two black circles touch
+      if (firstBlackPoint && firstBlackPoint.getDistance(event.point) <= 8) {
+        const mid = firstBlackPoint.add(event.point).divide(2);
+        path.firstSegment.point = mid;
+        path.lastSegment.point = mid;
+        path.closed = true;
+        console.log('Paths joined at center:', mid);
+
+        // Remove black circles after joining
+        paper.project.activeLayer.children
+          .filter(item => item !== path && item instanceof paper.Path && item.fillColor && item.fillColor.equals(new paper.Color('black')))
+          .forEach(circle => circle.remove());
+        console.log('Black circles removed.');
+        // Fill the closed shape with a light blue color
+        path.fillColor = new paper.Color('lightblue');
+        console.log('Shape filled with lightblue.');
+      }
   
       if (path) {
         const originalSegmentCount = path.segments.length;
