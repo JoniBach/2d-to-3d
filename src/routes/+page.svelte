@@ -28,11 +28,9 @@
 		tool.onMouseDown = event => {
 			if (!isLeftButton(event)) return;
 			const hitResult = paper.project.hitTest(event.point, hitOptions);
-
 			if (event.modifiers.shift) {
 				if (hitResult?.item) {
 					if (selectedItems.includes(hitResult.item)) {
-						// Already selected; mark for deselection if no drag occurs
 						pendingDeselect = hitResult.item;
 						draggingPath = hitResult.item;
 						console.log('Pending deselection for shape at:', event.point);
@@ -45,17 +43,14 @@
 					}
 				}
 				return;
-			} else {
-				// On non-shift click, clear any existing selections
-				if (selectedItems.length > 0) {
-					selectedItems.forEach(item => {
-						item.selected = false;
-						item.fullySelected = false;
-					});
-					selectedItems = [];
-					draggingPath = null;
-					console.log('Cleared all selections');
-				}
+			} else if (selectedItems.length > 0) {
+				selectedItems.forEach(item => {
+					item.selected = false;
+					item.fullySelected = false;
+				});
+				selectedItems = [];
+				draggingPath = null;
+				console.log('Cleared all selections');
 			}
 
 			isDrawing = true;
@@ -72,7 +67,6 @@
 				if (pendingDeselect) {
 					pendingDeselect = null;
 				}
-				// Drag all selected items
 				selectedItems.forEach(item => {
 					item.position = item.position.add(event.delta);
 				});
