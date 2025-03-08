@@ -2,12 +2,17 @@
 	import { onMount } from 'svelte';
 	import paper from 'paper';
 
-	let canvas, firstBlackPoint, path, draggingPath = null, isDrawing = false, selectedItems = [], pendingDeselect = null;
+	let canvas;
+	let firstBlackPoint;
+	let path = null;
+	let isDrawing = false;
+	let selectedItems = [];
+	let draggingPath = null;
+	let pendingDeselect = null;
 
 	function createCircle(point, radius, fillColor) {
 		const circle = new paper.Path.Circle({ center: point, radius, fillColor });
 		paper.project.activeLayer.addChild(circle);
-		console.log(`${fillColor} circle created at:`, point);
 	}
 
 	function removeCircles(color, exclude = null) {
@@ -28,18 +33,17 @@
 		tool.onMouseDown = event => {
 			if (!isLeftButton(event)) return;
 			const hitResult = paper.project.hitTest(event.point, hitOptions);
+
 			if (event.modifiers.shift) {
 				if (hitResult?.item) {
 					if (selectedItems.includes(hitResult.item)) {
 						pendingDeselect = hitResult.item;
 						draggingPath = hitResult.item;
-						console.log('Pending deselection for shape at:', event.point);
 					} else {
 						hitResult.item.selected = true;
 						hitResult.item.fullySelected = true;
 						selectedItems.push(hitResult.item);
 						draggingPath = hitResult.item;
-						console.log('Added shape to multi-selection at:', event.point);
 					}
 				}
 				return;
@@ -50,7 +54,6 @@
 				});
 				selectedItems = [];
 				draggingPath = null;
-				console.log('Cleared all selections');
 			}
 
 			isDrawing = true;
@@ -58,15 +61,12 @@
 			path = new paper.Path({ segments: [event.point], strokeColor: 'black' });
 			firstBlackPoint = event.point;
 			createCircle(event.point, 4, 'black');
-			console.log('Layer children count after start:', paper.project.activeLayer.children.length);
 		};
 
 		tool.onMouseDrag = event => {
 			if (!isLeftButton(event)) return;
 			if (event.modifiers.shift && draggingPath?.selected) {
-				if (pendingDeselect) {
-					pendingDeselect = null;
-				}
+				if (pendingDeselect) pendingDeselect = null;
 				selectedItems.forEach(item => {
 					item.position = item.position.add(event.delta);
 				});
@@ -75,7 +75,6 @@
 			if (isDrawing && path) {
 				path.add(event.point);
 				createCircle(event.point, 1, 'red');
-				console.log('Layer children count after drag:', paper.project.activeLayer.children.length);
 			}
 		};
 
@@ -86,7 +85,6 @@
 					pendingDeselect.selected = false;
 					pendingDeselect.fullySelected = false;
 					selectedItems = selectedItems.filter(item => item !== pendingDeselect);
-					console.log('Deselected shape on mouse up (no drag) at:', event.point);
 					pendingDeselect = null;
 				}
 				draggingPath = null;
@@ -95,35 +93,24 @@
 			if (!isDrawing) return;
 
 			createCircle(event.point, 4, 'black');
-			console.log('Layer children count after end:', paper.project.activeLayer.children.length);
 
 			if (firstBlackPoint && firstBlackPoint.getDistance(event.point) <= 8) {
 				const mid = firstBlackPoint.add(event.point).divide(2);
 				path.firstSegment.point = mid;
 				path.lastSegment.point = mid;
 				path.closed = true;
-				console.log('Paths joined at center:', mid);
 				removeCircles('black', path);
-				console.log('Black circles removed.');
 				path.fillColor = new paper.Color('blue');
 				path.fillColor.alpha = 0.05;
-				console.log('Shape filled with blue.');
 			}
 
 			const originalCount = path.segments.length;
 			path.simplify(10);
 			path.fullySelected = true;
-			const newCount = path.segments.length;
-			const removed = originalCount - newCount;
-			const percentage = 100 - Math.round((newCount / originalCount) * 100);
-			console.log(`${removed} of the ${originalCount} segments were removed. Saving ${percentage}%`);
-
 			removeCircles('red');
-			console.log('Red circles removed.');
 			paper.view.update();
 			if (path && !selectedItems.includes(path)) {
 				selectedItems.push(path);
-				console.log('Newly drawn shape added to selection');
 			}
 			isDrawing = false;
 		};
