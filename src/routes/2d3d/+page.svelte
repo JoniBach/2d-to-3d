@@ -7,93 +7,69 @@
   let paperCanvas;
   let threeCanvas;
   let paperCircle, threeCircle;
-  onMount(() => {
-    // Initialize Paper.js canvas
-    if (paperCanvas) {
-      paper.setup(paperCanvas);
-      // Draw a simple background grid for Paper.js canvas
-      const gridSpacing = 20;
-      const bounds = paper.view.bounds;
-      for (let x = bounds.left; x <= bounds.right; x += gridSpacing) {
-        new paper.Path.Line({
-          from: [x, bounds.top],
-          to: [x, bounds.bottom],
-          strokeColor: '#e0e0e0'
-        });
-      }
-      for (let y = bounds.top; y <= bounds.bottom; y += gridSpacing) {
-        new paper.Path.Line({
-          from: [bounds.left, y],
-          to: [bounds.right, y],
-          strokeColor: '#e0e0e0'
-        });
-      }
-      // Create a red circle at the center
-      paperCircle = new paper.Path.Circle({
-        center: paper.view.center,
-        radius: 50,
-        fillColor: 'red'
-      });
-      paperCircle.onMouseDown = function(event) {
-        this.data.offset = this.position.subtract(event.point);
-      };
-
-      paperCircle.onMouseDrag = function(event) {
-        this.position = event.point.add(this.data.offset);
-        // Update the 3D circle position to replicate the 2D circle movement
-        if (threeCircle) {
-          const center = paper.view.center;
-          threeCircle.position.x = this.position.x - center.x;
-          threeCircle.position.y = center.y - this.position.y; // Invert Y movement
-          threeCircle.position.z = 0;
-        }
-      };
-      paper.view.draw();
+  
+  // Initialize Paper.js canvas, draw grid and add a red circle with drag functionality
+  function initPaper() {
+    paper.setup(paperCanvas);
+    const gridSpacing = 20;
+    const { left, right, top, bottom } = paper.view.bounds;
+    for (let x = left; x <= right; x += gridSpacing) {
+      new paper.Path.Line({ from: [x, top], to: [x, bottom], strokeColor: '#e0e0e0' });
     }
-    // Initialize Three.js canvas
-    if (threeCanvas) {
-      const width = threeCanvas.clientWidth;
-      const height = threeCanvas.clientHeight;
-      const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0xffffff);
-      const camera = new THREE.PerspectiveCamera(
-        77, // Field of view
-        width / height, // Aspect ratio
-        0.1,
-        1000
-      );
-      camera.position.set(0, 0, 250); // Adjusted Z position for closer zoom
-      camera.lookAt(0, 0, 0);
-
-      const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas });
-      renderer.setSize(width, height);
-      renderer.setClearColor(0xffffff);
-
-      // Add a background grid to the Three.js scene
-      const gridHelper = new THREE.GridHelper(400, 20, 0xe0e0e0, 0xe0e0e0);
-      gridHelper.rotation.x = -Math.PI / 2; // Rotate to lie in the XY plane
-      scene.add(gridHelper);
-
-      const controls = new OrbitControls(camera, renderer.domElement);
-      controls.enableDamping = true; // Enable damping (inertia)
-      controls.dampingFactor = 0.25; // Damping factor
-      controls.enableZoom = true; // Allow zooming
+    for (let y = top; y <= bottom; y += gridSpacing) {
+      new paper.Path.Line({ from: [left, y], to: [right, y], strokeColor: '#e0e0e0' });
+    }
+    paperCircle = new paper.Path.Circle({ center: paper.view.center, radius: 50, fillColor: 'red' });
+    paperCircle.onMouseDown = function(event) {
+      this.data.offset = this.position.subtract(event.point);
+    };
+    paperCircle.onMouseDrag = function(event) {
+      this.position = event.point.add(this.data.offset);
+      if (threeCircle) {
+        const { x: centerX, y: centerY } = paper.view.center;
+        threeCircle.position.x = this.position.x - centerX;
+        threeCircle.position.y = centerY - this.position.y;
+        threeCircle.position.z = 0;
+      }
+    };
+    paper.view.draw();
+  }
+  
+  // Initialize Three.js canvas with scene, camera, grid and controls
+  function initThree() {
+    const width = threeCanvas.clientWidth;
+    const height = threeCanvas.clientHeight;
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+    const camera = new THREE.PerspectiveCamera(77, width / height, 0.1, 1000);
+    camera.position.set(0, 0, 250);
+    camera.lookAt(0, 0, 0);
+    const renderer = new THREE.WebGLRenderer({ canvas: threeCanvas });
+    renderer.setSize(width, height);
+    renderer.setClearColor(0xffffff);
+    const gridHelper = new THREE.GridHelper(400, 20, 0xe0e0e0, 0xe0e0e0);
+    gridHelper.rotation.x = -Math.PI / 2;
+    scene.add(gridHelper);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.25;
+    controls.enableZoom = true;
+    const geometry = new THREE.CircleGeometry(50, 32);
+    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+    threeCircle = new THREE.Mesh(geometry, material);
+    scene.add(threeCircle);
+    
+    function animate() {
+      requestAnimationFrame(animate);
       controls.update();
-
-      // Create a 2D circle and add to scene
-      const geometry = new THREE.CircleGeometry(50, 32);
-      const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-      threeCircle = new THREE.Mesh(geometry, material);
-      scene.add(threeCircle);
-
-      function animate() {
-        requestAnimationFrame(animate);
-        controls.update();
-        renderer.render(scene, camera);
-      }
-
-      animate();
+      renderer.render(scene, camera);
     }
+    animate();
+  }
+  
+  onMount(() => {
+    if (paperCanvas) initPaper();
+    if (threeCanvas) initThree();
   });
 </script>
 
