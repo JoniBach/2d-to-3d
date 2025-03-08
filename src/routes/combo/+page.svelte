@@ -214,6 +214,18 @@
 	});
 </script>
 
+<div style="text-align: center; margin: 10px;">
+	<label for="extrusion-slider">Extrusion Depth: {extrusionDepth}</label>
+	<input
+		id="extrusion-slider"
+		type="range"
+		min="1"
+		max="100"
+		bind:value={extrusionDepth}
+		on:input={update3DPattern}
+	/>
+</div>
+
 <div style="display: flex; flex-direction: row; justify-content: center; align-items: center;">
 	<canvas bind:this={canvas} style="border: 1px solid #000; margin: 10px; width: 400px; height: 400px;"></canvas>
 	<canvas bind:this={threeCanvas} style="border: 1px solid #000; margin: 10px; width: 400px; height: 400px;"></canvas>
