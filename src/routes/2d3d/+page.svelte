@@ -42,9 +42,11 @@
   function initPaper() {
     paper.setup(paperCanvas);
     drawGrid();
-    paper.view.onMouseDown = handleMouseDown;
-    paper.view.onMouseDrag = handleMouseDrag;
-    paper.view.onMouseUp = handleMouseUp;
+    Object.assign(paper.view, {
+      onMouseDown: handleMouseDown,
+      onMouseDrag: handleMouseDrag,
+      onMouseUp: handleMouseUp
+    });
     paper.view.draw();
   }
   
@@ -81,16 +83,13 @@
     const group = new THREE.Group();
     paper.project.activeLayer.children.forEach(item => {
       if (item instanceof paper.Path && item.strokeColor && !item.data?.grid) {
-        const vertices = item.segments.flatMap(segment => [segment.point.x - center.x, center.y - segment.point.y, 0]);
-        if (vertices.length >= 6) {
-          const points = [];
-          for (let i = 0; i < vertices.length; i += 3) {
-            points.push(new THREE.Vector2(vertices[i], vertices[i+1]));
-          }
-          // Force closure for open paths
-          if (!item.closed && points.length > 0 && !points[0].equals(points[points.length - 1])) {
-            points.push(points[0].clone());
-          }
+        const points = item.segments.map(segment =>
+          new THREE.Vector2(segment.point.x - center.x, center.y - segment.point.y)
+        );
+        if (points.length >= 2 && !item.closed && !points[0].equals(points[points.length - 1])) {
+          points.push(points[0].clone());
+        }
+        if (points.length >= 2) {
           const shape = new THREE.Shape(points);
           const extrudeSettings = { depth: extrusionDepth, bevelEnabled: false };
           const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
@@ -109,29 +108,12 @@
   });
 </script>
 
-<style>
-  .container {
-    display: flex;
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-  }
-  canvas {
-    border: 1px solid #000;
-    margin: 10px;
-  }
-  .paper-canvas, .three-canvas {
-    width: 400px;
-    height: 400px;
-  }
-</style>
-
 <div style="margin: 10px; text-align: center;">
   <label for="extrusionSlider">Extrusion Depth: {extrusionDepth}</label>
   <input id="extrusionSlider" type="range" min="1" max="50" bind:value={extrusionDepth} on:input={update3DPattern} style="width: 300px; margin-left: 10px;" />
 </div>
 
-<div class="container">
-  <canvas bind:this={paperCanvas} class="paper-canvas"></canvas>
-  <canvas bind:this={threeCanvas} class="three-canvas"></canvas>
+<div style="display: flex; flex-direction: row; justify-content: center; align-items: center;">
+  <canvas bind:this={paperCanvas} style="border: 1px solid #000; margin: 10px; width: 400px; height: 400px;"></canvas>
+  <canvas bind:this={threeCanvas} style="border: 1px solid #000; margin: 10px; width: 400px; height: 400px;"></canvas>
 </div>
