@@ -28,36 +28,43 @@
 		tool.onMouseDown = event => {
 			if (!isLeftButton(event)) return;
 			const hitResult = paper.project.hitTest(event.point, hitOptions);
+			
+			if (selectedItem) {
+				if (hitResult?.item === selectedItem) {
+					if (event.modifiers.shift) {
+						draggingPath = selectedItem;
+					}
+					return; // Clicking on the selected shape does nothing
+				} else {
+					selectedItem.selected = false;
+					selectedItem.fullySelected = false;
+					console.log('Deselected shape');
+					selectedItem = null;
+				}
+			}
+			
 			if (event.modifiers.shift) {
-			    if (hitResult?.item) {
-			        if (path) path.selected = false;
-			        hitResult.item.selected = true;
-			        hitResult.item.fullySelected = true;
-			        selectedItem = hitResult.item;
-			        draggingPath = hitResult.item;
-			        console.log('Shape selected with shift at:', event.point);
-			    } else {
-			        if (selectedItem) {
-			            selectedItem.selected = false;
-			            selectedItem.fullySelected = false;
-			            selectedItem = null;
-			            console.log('Deselected shape');
-			        }
-			    }
-			    return;
+				if (hitResult?.item) {
+					hitResult.item.selected = true;
+					hitResult.item.fullySelected = true;
+					selectedItem = hitResult.item;
+					draggingPath = hitResult.item;
+					console.log('Shape selected with shift at:', event.point);
+				}
+				return;
 			} else {
-			    isDrawing = true;
-			    if (path) path.selected = false;
-			    path = new paper.Path({ segments: [event.point], strokeColor: 'black' });
-			    firstBlackPoint = event.point;
-			    createCircle(event.point, 4, 'black');
-			    console.log('Layer children count after start:', paper.project.activeLayer.children.length);
+				isDrawing = true;
+				if (path) path.selected = false;
+				path = new paper.Path({ segments: [event.point], strokeColor: 'black' });
+				firstBlackPoint = event.point;
+				createCircle(event.point, 4, 'black');
+				console.log('Layer children count after start:', paper.project.activeLayer.children.length);
 			}
 		};
 
 		tool.onMouseDrag = event => {
 			if (!isLeftButton(event)) return;
-			if (event.modifiers.shift && draggingPath) {
+			if (event.modifiers.shift && draggingPath && draggingPath.selected) {
 				draggingPath.position = draggingPath.position.add(event.delta);
 			} else if (isDrawing && path) {
 				path.add(event.point);
