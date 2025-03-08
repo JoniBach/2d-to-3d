@@ -35,7 +35,7 @@
 		canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
 		tool.onMouseDown = (event) => {
-			if (event.event.button === 0) {
+			if (event.event.button === 0 && !event.modifiers.shift) {
 				if (path) path.selected = false;
 				path = new paper.Path({
 					segments: [event.point],
@@ -48,7 +48,7 @@
 		};
 
 		tool.onMouseDrag = (event) => {
-			if (event.event.button === 0) {
+			if (event.event.button === 0 && !event.modifiers.shift) {
 				if (path) {
 					path.add(event.point);
 					createCircle(event.point, 1, 'red');
@@ -61,7 +61,7 @@
 		};
 
 		tool.onMouseUp = (event) => {
-			if (event.event.button === 0) {
+			if (event.event.button === 0 && !event.modifiers.shift) {
 				createCircle(event.point, 4, 'black');
 				console.log('Layer children count after end:', paper.project.activeLayer.children.length);
 
