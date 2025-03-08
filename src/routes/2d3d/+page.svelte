@@ -32,6 +32,9 @@
 
   const handleMouseUp = (event) => {
     drawingPath.add(event.point);
+    // Close the path and fill it when mouse is released
+    drawingPath.closed = true;
+    drawingPath.fillColor = 'rgba(255, 0, 0, 0.3)';
     update3DPattern();
   };
   
@@ -79,10 +82,23 @@
       if (item instanceof paper.Path && item.strokeColor && !item.data?.grid) {
         const vertices = item.segments.flatMap(segment => [segment.point.x - center.x, center.y - segment.point.y, 0]);
         if (vertices.length >= 6) {
-          const geometry = new THREE.BufferGeometry();
-          geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-          const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-          group.add(new THREE.Line(geometry, material));
+          if (item.closed) {
+            // Create a filled shape from closed path
+            const points = [];
+            for (let i = 0; i < vertices.length; i += 3) {
+              points.push(new THREE.Vector2(vertices[i], vertices[i+1]));
+            }
+            const shape = new THREE.Shape(points);
+            const geometry = new THREE.ShapeGeometry(shape);
+            const material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+            group.add(new THREE.Mesh(geometry, material));
+          } else {
+            // For open paths, use line geometry
+            const geometry = new THREE.BufferGeometry();
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+            const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+            group.add(new THREE.Line(geometry, material));
+          }
         }
       }
     });
