@@ -29,29 +29,29 @@
 			if (!isLeftButton(event)) return;
 			const hitResult = paper.project.hitTest(event.point, hitOptions);
 			if (event.modifiers.shift) {
-				if (hitResult?.item) draggingPath = hitResult.item;
+			    if (hitResult?.item) {
+			        if (path) path.selected = false;
+			        hitResult.item.selected = true;
+			        hitResult.item.fullySelected = true;
+			        selectedItem = hitResult.item;
+			        draggingPath = hitResult.item;
+			        console.log('Shape selected with shift at:', event.point);
+			    } else {
+			        if (selectedItem) {
+			            selectedItem.selected = false;
+			            selectedItem.fullySelected = false;
+			            selectedItem = null;
+			            console.log('Deselected shape');
+			        }
+			    }
+			    return;
 			} else {
-				if (hitResult?.item) {
-					if (path) path.selected = false;
-					hitResult.item.selected = true;
-					hitResult.item.fullySelected = true;
-					selectedItem = hitResult.item;
-					console.log('Shape selected at:', event.point);
-					return;
-				}
-				if (selectedItem) {
-					selectedItem.selected = false;
-					selectedItem.fullySelected = false;
-					selectedItem = null;
-					console.log('Deselected shape');
-					return;
-				}
-				isDrawing = true;
-				if (path) path.selected = false;
-				path = new paper.Path({ segments: [event.point], strokeColor: 'black' });
-				firstBlackPoint = event.point;
-				createCircle(event.point, 4, 'black');
-				console.log('Layer children count after start:', paper.project.activeLayer.children.length);
+			    isDrawing = true;
+			    if (path) path.selected = false;
+			    path = new paper.Path({ segments: [event.point], strokeColor: 'black' });
+			    firstBlackPoint = event.point;
+			    createCircle(event.point, 4, 'black');
+			    console.log('Layer children count after start:', paper.project.activeLayer.children.length);
 			}
 		};
 
@@ -69,34 +69,35 @@
 		tool.onMouseUp = event => {
 			if (!isLeftButton(event)) return;
 			if (event.modifiers.shift) {
-				draggingPath = null;
+			    draggingPath = null;
+			    return;
 			} else {
-				if (!isDrawing) return;
-				createCircle(event.point, 4, 'black');
-				console.log('Layer children count after end:', paper.project.activeLayer.children.length);
-				if (firstBlackPoint && firstBlackPoint.getDistance(event.point) <= 8) {
-					const mid = firstBlackPoint.add(event.point).divide(2);
-					path.firstSegment.point = mid;
-					path.lastSegment.point = mid;
-					path.closed = true;
-					console.log('Paths joined at center:', mid);
-					removeCircles('black', path);
-					console.log('Black circles removed.');
-					path.fillColor = new paper.Color('blue');
-					path.fillColor.alpha = 0.05;
-					console.log('Shape filled with blue.');
-				}
-				const originalCount = path.segments.length;
-				path.simplify(10);
-				path.fullySelected = true;
-				const newCount = path.segments.length;
-				const removed = originalCount - newCount;
-				const percentage = 100 - Math.round((newCount / originalCount) * 100);
-				console.log(`${removed} of the ${originalCount} segments were removed. Saving ${percentage}%`);
-				removeCircles('red');
-				console.log('Red circles removed.');
-				paper.view.update();
-				isDrawing = false;
+			    if (!isDrawing) return;
+			    createCircle(event.point, 4, 'black');
+			    console.log('Layer children count after end:', paper.project.activeLayer.children.length);
+			    if (firstBlackPoint && firstBlackPoint.getDistance(event.point) <= 8) {
+				    const mid = firstBlackPoint.add(event.point).divide(2);
+				    path.firstSegment.point = mid;
+				    path.lastSegment.point = mid;
+				    path.closed = true;
+				    console.log('Paths joined at center:', mid);
+				    removeCircles('black', path);
+				    console.log('Black circles removed.');
+				    path.fillColor = new paper.Color('blue');
+				    path.fillColor.alpha = 0.05;
+				    console.log('Shape filled with blue.');
+			    }
+			    const originalCount = path.segments.length;
+			    path.simplify(10);
+			    path.fullySelected = true;
+			    const newCount = path.segments.length;
+			    const removed = originalCount - newCount;
+			    const percentage = 100 - Math.round((newCount / originalCount) * 100);
+			    console.log(`${removed} of the ${originalCount} segments were removed. Saving ${percentage}%`);
+			    removeCircles('red');
+			    console.log('Red circles removed.');
+			    paper.view.update();
+			    isDrawing = false;
 			}
 		};
 	});
