@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import paper from 'paper';
 
-	let canvas, firstBlackPoint, path, selectedItem = null, draggingPath = null, isDrawing = false;
+	let canvas, firstBlackPoint, path, draggingPath = null, isDrawing = false, selectedItems = [], pendingDeselect = null;
 
 	function createCircle(point, radius, fillColor) {
 		const circle = new paper.Path.Circle({ center: point, radius, fillColor });
@@ -30,21 +30,32 @@
 			const hitResult = paper.project.hitTest(event.point, hitOptions);
 
 			if (event.modifiers.shift) {
-				if (selectedItem && hitResult?.item === selectedItem) {
-					draggingPath = selectedItem;
-				} else if (hitResult?.item) {
-					if (selectedItem) {
-						selectedItem.selected = false;
-						selectedItem.fullySelected = false;
-						console.log('Deselected shape');
+				if (hitResult?.item) {
+					if (selectedItems.includes(hitResult.item)) {
+						// Already selected; mark for deselection if no drag occurs
+						pendingDeselect = hitResult.item;
+						draggingPath = hitResult.item;
+						console.log('Pending deselection for shape at:', event.point);
+					} else {
+						hitResult.item.selected = true;
+						hitResult.item.fullySelected = true;
+						selectedItems.push(hitResult.item);
+						draggingPath = hitResult.item;
+						console.log('Added shape to multi-selection at:', event.point);
 					}
-					hitResult.item.selected = true;
-					hitResult.item.fullySelected = true;
-					selectedItem = hitResult.item;
-					draggingPath = hitResult.item;
-					console.log('Shape selected with shift at:', event.point);
 				}
 				return;
+			} else {
+				// On non-shift click, clear any existing selections
+				if (selectedItems.length > 0) {
+					selectedItems.forEach(item => {
+						item.selected = false;
+						item.fullySelected = false;
+					});
+					selectedItems = [];
+					draggingPath = null;
+					console.log('Cleared all selections');
+				}
 			}
 
 			isDrawing = true;
@@ -58,7 +69,13 @@
 		tool.onMouseDrag = event => {
 			if (!isLeftButton(event)) return;
 			if (event.modifiers.shift && draggingPath?.selected) {
-				draggingPath.position = draggingPath.position.add(event.delta);
+				if (pendingDeselect) {
+					pendingDeselect = null;
+				}
+				// Drag all selected items
+				selectedItems.forEach(item => {
+					item.position = item.position.add(event.delta);
+				});
 				return;
 			}
 			if (isDrawing && path) {
@@ -71,6 +88,13 @@
 		tool.onMouseUp = event => {
 			if (!isLeftButton(event)) return;
 			if (event.modifiers.shift) {
+				if (pendingDeselect) {
+					pendingDeselect.selected = false;
+					pendingDeselect.fullySelected = false;
+					selectedItems = selectedItems.filter(item => item !== pendingDeselect);
+					console.log('Deselected shape on mouse up (no drag) at:', event.point);
+					pendingDeselect = null;
+				}
 				draggingPath = null;
 				return;
 			}
@@ -103,6 +127,10 @@
 			removeCircles('red');
 			console.log('Red circles removed.');
 			paper.view.update();
+			if (path && !selectedItems.includes(path)) {
+				selectedItems.push(path);
+				console.log('Newly drawn shape added to selection');
+			}
 			isDrawing = false;
 		};
 	});
