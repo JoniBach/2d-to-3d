@@ -6,6 +6,7 @@
   
   let paperCanvas, threeCanvas;
   let drawingPath, threeScene, threeCamera, threeRenderer, threeControls, threePattern;
+  let extrusionDepth = 10;
   
   const GRID_SPACING = 20;
   const GRID_COLOR = '#e0e0e0';
@@ -82,23 +83,19 @@
       if (item instanceof paper.Path && item.strokeColor && !item.data?.grid) {
         const vertices = item.segments.flatMap(segment => [segment.point.x - center.x, center.y - segment.point.y, 0]);
         if (vertices.length >= 6) {
-          if (item.closed) {
-            // Create a filled shape from closed path
-            const points = [];
-            for (let i = 0; i < vertices.length; i += 3) {
-              points.push(new THREE.Vector2(vertices[i], vertices[i+1]));
-            }
-            const shape = new THREE.Shape(points);
-            const geometry = new THREE.ShapeGeometry(shape);
-            const material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
-            group.add(new THREE.Mesh(geometry, material));
-          } else {
-            // For open paths, use line geometry
-            const geometry = new THREE.BufferGeometry();
-            geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-            const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
-            group.add(new THREE.Line(geometry, material));
+          const points = [];
+          for (let i = 0; i < vertices.length; i += 3) {
+            points.push(new THREE.Vector2(vertices[i], vertices[i+1]));
           }
+          // Force closure for open paths
+          if (!item.closed && points.length > 0 && !points[0].equals(points[points.length - 1])) {
+            points.push(points[0].clone());
+          }
+          const shape = new THREE.Shape(points);
+          const extrudeSettings = { depth: extrusionDepth, bevelEnabled: false };
+          const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+          const material = new THREE.MeshBasicMaterial({ color: 0xff0000, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
+          group.add(new THREE.Mesh(geometry, material));
         }
       }
     });
@@ -128,6 +125,11 @@
     height: 400px;
   }
 </style>
+
+<div style="margin: 10px; text-align: center;">
+  <label for="extrusionSlider">Extrusion Depth: {extrusionDepth}</label>
+  <input id="extrusionSlider" type="range" min="1" max="50" bind:value={extrusionDepth} on:input={update3DPattern} style="width: 300px; margin-left: 10px;" />
+</div>
 
 <div class="container">
   <canvas bind:this={paperCanvas} class="paper-canvas"></canvas>
